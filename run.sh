@@ -3,9 +3,12 @@
 # Directory to check
 DIR="./src"  # Change this to your target directory
 
+# On Root folder
+EXCLUDE_FILE="exclude.txt"
+
+# Childrens of DATA_DIR
 DATA_DIR="./.temp"
 SUM_FILE="checksums.txt"  # File to store checksums
-EXCLUDE_FILE="exclude.txt"
 
 MAIN_ENTRYPOINT=./src/uex1010.cpp
 
@@ -27,7 +30,7 @@ SANITIZER="-fsanitize=address"
 
 init_stat() {
     key="$1"
-    grep -q "^$key=" "$DATA_DIR/$STATS_FILE" || echo "$key=0" >> "$STATS_FILE"
+    grep -q "^$key=" "$DATA_DIR/$STATS_FILE" || echo "$key=0" >> "$DATA_DIR/$STATS_FILE"
 }
 
 get_stat() {
@@ -52,8 +55,24 @@ is_excluded() {
         if [[ "$file" == "$exclude" || "$file" == "$exclude"* ]]; then
             return 0  # Excluded
         fi
-    done < "$DATA_DIR/$EXCLUDE_FILE"
+    done < "$EXCLUDE_FILE"
     return 1  # Not excluded
+}
+
+ensure_folders() {
+	if ! [ -d "$DATA_DIR" ]; then
+		echo "Created missing folder: $DATA_DIR"
+		mkdir $DATA_DIR
+	fi
+	if ! [ -d "$DATA_DIR/o" ]; then
+		mkdir $DATA_DIR/o
+	fi
+	if ! [ -d "$DATA_DIR/$STATS_FILE" ]; then
+		touch $DATA_DIR/$STATS_FILE
+	fi
+	if ! [ -d "$DATA_DIR/$SUM_FILE" ]; then
+		touch $DATA_DIR/$SUM_FILE
+	fi
 }
 
 # Function to calculate and store checksums
@@ -70,7 +89,7 @@ calculate_checksums() {
         fi
     done
 
-    mv "$TEMP_SUMS" "$DATA_DIR/$SUMFILE"  # Update the checksum file
+    mv "$TEMP_SUMS" "$DATA_DIR/$SUM_FILE"  # Update the checksum file
 }
 
 get_build_number(){
@@ -155,15 +174,13 @@ compile_all() {
 check_changes() {
 
 
-    if [ ! -f "$DATA_DIR/$SUMFILE" ]; then
+    if [ ! -f "$DATA_DIR/$SUM_FILE" ]; then
         echo "Checksum file does not exist. Calculating checksums..."
         calculate_checksums
         return
     fi
 
-    if ! [ -d "$DATA_DIR/o/" ]; then
-        mkdir $DATA_DIR/o
-    fi
+
 
     #$(pkg-config gtkmm-2.4 --cflags)
     clear
@@ -176,8 +193,9 @@ check_changes() {
             #echo "Skipping excluded file: $file"
         fi
     done
+
     # Compare the current checksums with the stored checksums
-    CHANGES=$(diff "$DATA_DIR/$SUMFILE" "$TEMP_FILE")
+    CHANGES=$(diff "$DATA_DIR/$SUM_FILE" "$TEMP_FILE")
 
     if [ -n "$CHANGES" ]; then
         echo "Changes detected!"
@@ -282,6 +300,8 @@ fi
 
 echo "Compiler: $COMPILER"
 
+ensure_folders
+
 if [ "$COMPILE_MAIN_ONLY" != false ]; then
     echo "Compiling only $MAIN_ENTRYPOINT"
     compile_main_only
@@ -299,9 +319,9 @@ if [ "$RUN_AFTER_COMPILE" != false ]; then
 
     echo "Running program:"
     echo "   === PROGRAM OUTPUT ===   "
-    echo
     .temp/main
 fi
 
-echo "Done :)"
-
+echo
+echo "   === PROGRAM END :) ===		"
+echo
