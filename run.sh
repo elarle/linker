@@ -2,12 +2,14 @@
 
 # Directory to check
 DIR="./src"  # Change this to your target directory
-SUM_FILE=".temp/checksums.txt"  # File to store checksums
-EXCLUDE_FILE=".temp/exclude.txt"
+
+DATA_DIR="./.temp"
+SUM_FILE="checksums.txt"  # File to store checksums
+EXCLUDE_FILE="exclude.txt"
 
 MAIN_ENTRYPOINT=./src/uex1010.cpp
 
-STATS_FILE="./.temp/stats"
+STATS_FILE="stats.txt"
 
 COMPILER="g++"
 
@@ -25,11 +27,11 @@ SANITIZER="-fsanitize=address"
 
 init_stat() {
     key="$1"
-    grep -q "^$key=" "$STATS_FILE" || echo "$key=0" >> "$STATS_FILE"
+    grep -q "^$key=" "$DATA_DIR/$STATS_FILE" || echo "$key=0" >> "$STATS_FILE"
 }
 
 get_stat() {
-    grep "^$1=" "$STATS_FILE" | cut -d '=' -f 2
+    grep "^$1=" "$DATA_DIR/$STATS_FILE" | cut -d '=' -f 2
 }
 
 increment_stat() {
@@ -37,7 +39,7 @@ increment_stat() {
     init_stat "$key"
     value=$(get_stat "$key")
     new_value=$((value + 1))
-    sed -i "s/^$key=.*/$key=$new_value/" "$STATS_FILE"
+    sed -i "s/^$key=.*/$key=$new_value/" "$DATA_DIR/$STATS_FILE"
 }
 
 ##
@@ -50,7 +52,7 @@ is_excluded() {
         if [[ "$file" == "$exclude" || "$file" == "$exclude"* ]]; then
             return 0  # Excluded
         fi
-    done < "$EXCLUDE_FILE"
+    done < "$DATA_DIR/$EXCLUDE_FILE"
     return 1  # Not excluded
 }
 
@@ -68,7 +70,7 @@ calculate_checksums() {
         fi
     done
 
-    mv "$TEMP_SUMS" "$SUM_FILE"  # Update the checksum file
+    mv "$TEMP_SUMS" "$DATA_DIR/$SUMFILE"  # Update the checksum file
 }
 
 get_build_number(){
@@ -153,15 +155,16 @@ compile_all() {
 check_changes() {
 
 
-    if [ ! -f "$SUM_FILE" ]; then
+    if [ ! -f "$DATA_DIR/$SUMFILE" ]; then
         echo "Checksum file does not exist. Calculating checksums..."
         calculate_checksums
         return
     fi
 
-    if ! [ -d "./.temp/o/" ]; then
-        mkdir ./.temp/o
+    if ! [ -d "$DATA_DIR/o/" ]; then
+        mkdir $DATA_DIR/o
     fi
+
     #$(pkg-config gtkmm-2.4 --cflags)
     clear
     
@@ -174,7 +177,7 @@ check_changes() {
         fi
     done
     # Compare the current checksums with the stored checksums
-    CHANGES=$(diff "$SUM_FILE" "$TEMP_FILE")
+    CHANGES=$(diff "$DATA_DIR/$SUMFILE" "$TEMP_FILE")
 
     if [ -n "$CHANGES" ]; then
         echo "Changes detected!"
